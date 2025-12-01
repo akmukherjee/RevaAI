@@ -7,6 +7,7 @@ AI-powered pricing intelligence assistant for retailers. Automates SKU matching,
 Reva AI enhances the pricing optimization workflow. It automatically matches retailer SKUs to competitor products, interprets complex promotions, extracts and applies company policies and vendor rules, and runs scenario simulations while enforcing guardrails.
 
 The system helps retailers:
+
 - **Match SKUs** across competitors using embeddings and fuzzy matching
 - **Normalize promos** from raw text into structured data
 - **Simulate scenarios** to find optimal pricing strategies
@@ -16,6 +17,7 @@ Built with [LangGraph](https://langchain-ai.github.io/langgraph/) for reliable, 
 ## Quick Start
 
 ### Prerequisites
+
 - Python 3.12+
 - [uv](https://github.com/astral-sh/uv) (fast Python package manager)
 
@@ -40,9 +42,9 @@ Add these to your `.env` file:
 
 ```bash
 OPENAI_API_KEY=your-openai-key
-TAVILY_API_KEY=your-tavily-key
+#TAVILY_API_KEY=your-tavily-key
 LANGSMITH_API_KEY=your-langsmith-key  # Optional: for tracing
-OPIK_API_KEY=your-opik-key            # Optional: for evaluation
+#OPIK_API_KEY=your-opik-key            # Optional: for evaluation
 ```
 
 ### Run Locally
@@ -59,21 +61,24 @@ uv run langgraph dev
 
 The pricing workflow follows a three-stage pipeline:
 
-```
+```ini
 START → Matcher → Promo Normalizer → Simulator → END
 ```
 
 ### Workflow Stages
 
 1. **Matcher** - Match internal SKUs to competitor products
+
    - Uses embeddings + fuzzy string matching
    - Outputs confidence scores for each match
 
 2. **Promo Normalizer** - Parse promotional text
+
    - Converts raw promo strings into structured data
    - Extracts discount amounts, types, and conditions
 
 3. **Simulator** - Generate pricing scenarios
+
    - Models elastic demand
    - Recommends optimal prices with expected margins
 
@@ -94,7 +99,7 @@ class PricingState(TypedDict):
 
 ### Project Structure
 
-```
+```ini
 RevaAI/
 ├── src/
 │   ├── agents/          # LangGraph workflows
