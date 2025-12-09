@@ -1,0 +1,79 @@
+- target_index: 0
+  target_title: TCL 65&#34; Class S5-Series 4K UHD HDR LED Smart Google TV - 65S551G
+  target_brand: TCL
+  target_price: 299.99
+  target_screen_size: 65.0
+  expected_competitor_sku: '11022353.0'
+  expected_source: Best Buy
+  expected_title: TCL - 65" Class QM8K Series 4K UHD HDR QD-Mini LED Smart TV with
+    Google TV (2025)
+  expected_brand: TCL
+  expected_price: 897.99
+  expected_screen_size: 64.5
+  match_rationale: "Same brand, \xB11\" screen size, 70% title similarity"
+  title_similarity: '0.70'
+- target_index: 5
+  target_title: Samsung 43&#34; Crystal UHD 4K Smart TV
+  target_brand: Samsung
+  target_price: 229.99
+  target_screen_size: 42.6
+  expected_competitor_sku: '10362556.0'
+  expected_source: Best Buy
+  expected_title: "Samsung - 43\u201D Class Q60D Series QLED 4K Smart Tizen TV (2024)"
+  expected_brand: Samsung
+  expected_price: 497.99
+  expected_screen_size: 42.5
+  match_rationale: "Same brand, \xB11\" screen size, 56% title similarity"
+  title_similarity: '0.56'
+- target_index: 38
+  target_title: TCL 50&#34; Class S5-Series 4K UHD HDR LED Smart Google TV - 50S551G
+  target_brand: TCL
+  target_price: 169.99
+  target_screen_size: 50.0
+  expected_competitor_sku: '10918112.0'
+  expected_source: Best Buy
+  expected_title: TCL - 50" Class Q6-Series 4K UHD HDR QLED Smart Google TV (2024)
+  expected_brand: TCL
+  expected_price: 349.99
+  expected_screen_size: 49.5
+  match_rationale: "Same brand, \xB11\" screen size, 80% title similarity"
+  title_similarity: '0.80'
+- target_index: 55
+  target_title: TCL 50&#34; Class S5-Series 4K UHD HDR LED Smart Google TV - 50S551G
+  target_brand: TCL
+  target_price: 169.99
+  target_screen_size: 50.0
+  expected_competitor_sku: '10918112.0'
+  expected_source: Best Buy
+  expected_title: TCL - 50" Class Q6-Series 4K UHD HDR QLED Smart Google TV (2024)
+  expected_brand: TCL
+  expected_price: 349.99
+  expected_screen_size: 49.5
+  match_rationale: "Same brand, \xB11\" screen size, 80% title similarity"
+  title_similarity: '0.80'
+- target_index: 123
+  target_title: Samsung 43&#34; Crystal UHD 4K Smart TV
+  target_brand: Samsung
+  target_price: 249.99
+  target_screen_size: 42.6
+  expected_competitor_sku: '10362556.0'
+  expected_source: Best Buy
+  expected_title: "Samsung - 43\u201D Class Q60D Series QLED 4K Smart Tizen TV (2024)"
+  expected_brand: Samsung
+  expected_price: 497.99
+  expected_screen_size: 42.5
+  match_rationale: "Same brand, \xB11\" screen size, 56% title similarity"
+  title_similarity: '0.56'
+- target_index: 165
+  target_title: Samsung 85&#34; Crystal UHD 4K Smart TV (UN85U8000F)
+  target_brand: Samsung
+  target_price: 899.99
+  target_screen_size: 85.0
+  expected_competitor_sku: '10961924.0'
+  expected_source: Best Buy
+  expected_title: "Samsung - 85\u201D Class Q70D Series QLED 4K Smart Tizen TV (2024)"
+  expected_brand: Samsung
+  expected_price: 1697.99
+  expected_screen_size: 84.5
+  match_rationale: "Same brand, \xB11\" screen size, 57% title similarity"
+  title_similarity: '0.57'
