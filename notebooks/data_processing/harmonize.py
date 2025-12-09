@@ -33,6 +33,7 @@ SPEC_KEYS_MAP = {
     # Display / Panel
     "Display Technology": "display_technology",
     "Display Type": "display_technology",
+    "Display": "display_technology",  # Walmart uses just "Display"
     "LED Panel Type": "panel_type",
     "Backlight Type": "backlight_type",
     "High Dynamic Range (HDR)": "hdr",
@@ -327,17 +328,26 @@ def normalize_specs(specs_flat: Dict[str, Any]) -> Dict[str, Any]:
 
     Uses SPEC_KEYS_MAP to convert retailer-specific field names into
     a unified schema (e.g., "Display Type" -> "display_technology").
+    Performs case-insensitive matching to handle variations like
+    "Screen Size" vs "Screen size" across retailers.
     """
     norm = {}
     for src_k, norm_k in SPEC_KEYS_MAP.items():
-        if src_k in specs_flat and specs_flat[src_k] not in (None, ""):
-            norm[norm_k] = specs_flat[src_k]
+        # Find case-insensitive match in source data
+        matched_key = None
+        for k in specs_flat.keys():
+            if k.lower() == src_k.lower():
+                matched_key = k
+                break
+
+        if matched_key and specs_flat[matched_key] not in (None, ""):
+            norm[norm_k] = specs_flat[matched_key]
     return norm
 
 def infer_source(domain_or_url: Optional[str]) -> Optional[str]:
     """Detect retailer source from domain name or URL.
 
-    Returns: "Amazon", "Walmart", "Best Buy", or None
+    Returns: "Amazon", "Walmart", "Best Buy", "Target", or None
     """
     s = (domain_or_url or "").lower()
     if "amazon" in s:
@@ -346,6 +356,8 @@ def infer_source(domain_or_url: Optional[str]) -> Optional[str]:
         return "Walmart"
     if "bestbuy" in s:
         return "Best Buy"
+    if "target" in s:
+        return "Target"
     return None
 
 def extract_screen_inches(val: Optional[str]) -> Optional[float]:
@@ -365,16 +377,37 @@ def join_list(vals: Any) -> Optional[str]:
     return vals
 
 def is_tv_item(item: Dict[str, Any], specs_flat: Dict[str, Any]) -> bool:
-    """
-    Heuristic: keep TVs only (optional). Checks categories/specs for 'TV', 'Television', 'QLED', 'LED'.
+    """Check if item is actually a TV based on specs, not just keywords.
+
+    Filters out false positives like TV stands, ATV/UTV products, and accessories
+    by requiring both TV indicators AND actual TV specifications.
     """
     cats = item.get("categories")
-    cats_str = join_list(cats) or ""
-    title = (item.get("title") or "").lower()
-    display = (specs_flat.get("Display Type") or specs_flat.get("Display Technology") or "").lower()
-    return any(keyword in cats_str for keyword in ["TV", "Television", "Smart TVs", "LED & LCD TVs", "QLED TVs"]) \
-           or "tv" in title \
-           or any(k in display for k in ["qled", "led", "oled"])
+    cats_str = (join_list(cats) or "").lower()
+    title = (item.get("title") or item.get("product_name") or "").lower()
+
+    # Check for TV keywords in title/categories
+    tv_keywords = any(kw in cats_str or kw in title
+                     for kw in ["television", "smart tv", "qled", "oled"])
+
+    # Must have actual display technology specs (TVs have this, furniture/toys don't)
+    display_tech = (
+        specs_flat.get("Display Type") or
+        specs_flat.get("Display Technology") or
+        specs_flat.get("Display") or  # Walmart uses just "Display"
+        ""
+    ).lower()
+    has_display = any(tech in display_tech
+                     for tech in ["led", "oled", "qled", "lcd", "plasma"])
+
+    # Must have screen size specification (TVs have this, games/accessories don't)
+    has_screen_size = any(key in specs_flat and specs_flat[key]
+                         for key in ["Screen Size", "Screen Size Class",
+                                    "Standing screen display size", "screen size", "Screen size"])
+
+    # Item must have TV indicators AND actual TV specs (display tech OR screen size)
+    # This filters out TV stands, ATV products, and other false positives
+    return (tv_keywords or "tv" in cats_str) and (has_display or has_screen_size)
 
 # ------------------------
 # Main pipeline
@@ -474,7 +507,7 @@ def harmonize_records(records: List[Dict[str, Any]], tv_only: bool = True) -> Li
             "source": source,
             "domain": source_domain,
             "url": url,
-            "title": item.get("title"),
+            "title": first_non_empty(item.get("title"), item.get("product_name")),
 
             # identity
             "brand": first_non_empty(item.get("brand"), normalized_specs.get("brand")),
