@@ -1,5 +1,22 @@
 #!/usr/bin/env python3
-"""Embedding experiment for SKU matching optimization."""
+"""
+Embedding Experiment for SKU Matching Optimization
+
+This script evaluates different embedding strategies for matching Target products
+to competitor products (Amazon, Walmart, Best Buy) using OpenAI embeddings.
+
+Goal: Determine which product fields (title, brand, features, specs, etc.) produce
+      the best embeddings for accurate SKU matching.
+
+Approach:
+  1. Test 5 different column combinations (baseline, with_features, etc.)
+  2. Embed all competitor products using each combination
+  3. For each Target product, find top-5 similar competitors using cosine similarity
+  4. Score results based on brand consistency and price proximity
+  5. Compare all combinations to identify the best performing strategy
+
+Output: CSV with results + detailed match comparison for analysis
+"""
 import json
 import os
 import hashlib
@@ -13,17 +30,41 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Experiment configuration
-NUM_TARGET_PRODUCTS = 2  # Number of target products to test (change this to scale experiment)
-BATCH_SIZE = 100  # Number of texts to embed per API call
-CACHE_DIR = Path("data/embeddings")  # Directory for embedding cache
+# ============================================================================
+# EXPERIMENT CONFIGURATION
+# ============================================================================
 
-# Column combinations to test (all 5)
+# Number of target products to test (start small, scale up for full evaluation)
+# Default: 2 (for quick testing)
+# Production: Set to len(target) for full dataset evaluation
+NUM_TARGET_PRODUCTS = 2
+
+# Batch size for OpenAI embedding API calls (max 100 recommended)
+BATCH_SIZE = 100
+
+# Directory to cache embeddings (avoids redundant API calls, saves $$$)
+CACHE_DIR = Path("data/embeddings")
+
+# ============================================================================
+# EMBEDDING COMBINATIONS TO TEST
+# ============================================================================
+# Each combination represents a different strategy for building embedding text
+# from product fields. We test all 5 to determine which works best.
+
 COMBINATIONS = {
+    # Strategy 1: Basic product info (title + brand + description)
     "baseline": ["title", "brand", "description"],
+
+    # Strategy 2: Title + brand + product features
     "with_features": ["title", "brand", "features"],
+
+    # Strategy 3: Title + model number + description (emphasize model matching)
     "with_model": ["title", "model_number", "description"],
+
+    # Strategy 4: Structured specs only (screen size, resolution, display tech)
     "structured_specs": ["title", "brand", "screen_size_inches", "resolution", "display_technology"],
+
+    # Strategy 5: Full context (title + brand + description + features)
     "full_context": ["title", "brand", "description", "features"],
 }
 
@@ -34,7 +75,21 @@ CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 
 def build_text(product, columns):
-    """Build embedding text from product columns."""
+    """
+    Build embedding text from product columns.
+
+    Concatenates specified product fields into a single string for embedding.
+    Handles field name variations between Target (uses 'product_brand') and
+    competitors (use 'brand').
+
+    Args:
+        product: Product dict with fields like title, brand, description, etc.
+        columns: List of column names to include in the embedding text
+
+    Returns:
+        String with fields joined by " | " separator
+        Example: "Samsung 65\" QLED TV | Samsung | 4K Smart TV with..."
+    """
     parts = []
     for col in columns:
         # Handle brand field name variations (Target uses 'product_brand', competitors use 'brand')
@@ -43,19 +98,43 @@ def build_text(product, columns):
         else:
             val = product.get(col)
 
+        # Skip empty/null values
         if val and str(val) not in ["None", "nan", ""]:
             parts.append(str(val))
+
     return " | ".join(parts)
 
 
 def get_embedding(text):
-    """Get embedding from OpenAI (single text - use for individual queries only)."""
+    """
+    Get embedding from OpenAI for a single text.
+
+    WARNING: Use for query products only! For bulk embedding, use batch_get_embeddings()
+             to avoid rate limits and reduce costs.
+
+    Args:
+        text: String to embed
+
+    Returns:
+        1536-dimensional embedding vector (text-embedding-3-small model)
+    """
     response = client.embeddings.create(input=text, model="text-embedding-3-small")
     return response.data[0].embedding
 
 
 def batch_get_embeddings(texts):
-    """Get embeddings for multiple texts in batches."""
+    """
+    Get embeddings for multiple texts in efficient batches.
+
+    Processes texts in batches of BATCH_SIZE to avoid rate limits and maximize
+    throughput. More cost-effective than individual API calls.
+
+    Args:
+        texts: List of strings to embed
+
+    Returns:
+        List of 1536-dimensional embedding vectors
+    """
     all_embeddings = []
 
     # Process in batches of BATCH_SIZE
@@ -100,11 +179,26 @@ def migrate_npy_to_pkl_cache(old_cache_path, new_cache_path, products, columns):
 
 
 def get_or_create_embeddings(products, columns, combo_name, dataset_name):
-    """Get embeddings from cache or generate if not cached (content-based caching)."""
+    """
+    Get embeddings from cache or generate if not cached (content-based caching).
+
+    Uses MD5 hash of text content as cache key, so embeddings persist even if
+    product order changes. Migrates old position-based .npy caches to new
+    content-based .pkl format automatically.
+
+    Args:
+        products: List of product dicts
+        columns: List of column names to use for embedding text
+        combo_name: Name of combination (e.g., "baseline", "with_features")
+        dataset_name: Name of dataset (e.g., "competitor", "target")
+
+    Returns:
+        NumPy array of shape (len(products), 1536) with embeddings
+    """
     cache_path = get_cache_path(dataset_name, combo_name)
     old_cache_path = CACHE_DIR / f"{dataset_name}_{combo_name}.npy"
 
-    # Try to migrate old cache if it exists
+    # Try to migrate old position-based cache to content-based cache if it exists
     migrate_npy_to_pkl_cache(old_cache_path, cache_path, products, columns)
 
     # Load existing cache or create new one
@@ -198,7 +292,19 @@ def load_data():
 
 
 def brand_score(query, matches):
-    """% of matches with same brand."""
+    """
+    Calculate brand consistency score: % of top matches with same brand as query.
+
+    Good embeddings should retrieve products from the same brand.
+    Higher score = better brand matching.
+
+    Args:
+        query: Query product dict
+        matches: List of matched product dicts
+
+    Returns:
+        Float between 0-1 representing % of matches with same brand
+    """
     # Handle both 'brand' and 'product_brand' field names
     query_brand = str(query.get("brand") or query.get("product_brand", "")).lower()
     if not query_brand or query_brand == "nan":
@@ -214,31 +320,65 @@ def brand_score(query, matches):
 
 
 def price_score(query, matches):
-    """% of matches within ±30% price."""
+    """
+    Calculate price proximity score: % of matches within ±30% price range.
+
+    Good embeddings should retrieve products at similar price points
+    (same product tier/quality level).
+
+    Args:
+        query: Query product dict
+        matches: List of matched product dicts
+
+    Returns:
+        Float between 0-1 representing % of matches within ±30% price
+    """
     query_price = query.get("final_price") or query.get("initial_price")
     if not query_price:
         return 0.0
+
     in_range = 0
     for m in matches:
         m_price = m.get("final_price") or m.get("initial_price")
         if m_price and abs(m_price - query_price) / query_price <= 0.3:
             in_range += 1
+
     return in_range / len(matches)
 
 
 def run_experiment(combo_name, columns, target, competitor):
-    """Run experiment for one column combination."""
+    """
+    Run embedding experiment for one column combination.
+
+    Process:
+      1. Embed all competitor products using specified columns (cached)
+      2. For each Target product:
+         - Embed query product
+         - Compute cosine similarity with all competitors
+         - Retrieve top-5 most similar competitors
+         - Score based on brand consistency and price proximity
+      3. Return aggregate scores and match details
+
+    Args:
+        combo_name: Name of this combination (e.g., "baseline")
+        columns: List of columns to use for embeddings
+        target: List of Target product dicts
+        competitor: List of competitor product dicts
+
+    Returns:
+        Dict with scores and detailed match information
+    """
     print(f"\n=== {combo_name}: {columns} ===")
 
-    # Embed competitor products (with caching)
+    # Embed all competitor products (with caching to avoid redundant API calls)
     print("Embedding competitor products...")
     comp_embeds = get_or_create_embeddings(competitor, columns, combo_name, "competitor")
 
-    # Test on target products
+    # Test on first N target products
     print(f"Testing on first {NUM_TARGET_PRODUCTS} target products...")
     brand_scores = []
     price_scores = []
-    all_matches = []  # Store all matches to return
+    all_matches = []  # Store all matches for detailed analysis
 
     for i, query_prod in enumerate(target[:NUM_TARGET_PRODUCTS]):
         query_text = build_text(query_prod, columns)
